@@ -6,6 +6,10 @@ use ink_lang as ink;
 mod todo_list {
     use ink_storage::{traits::{SpreadAllocate, PackedLayout, SpreadLayout}, Mapping};
 
+    use ink_prelude::{
+        string::String,
+        vec::Vec,
+    };
 
     pub type TodoItemId = i32;
 
@@ -101,6 +105,20 @@ mod todo_list {
                 None => return Err(TodoError::ItemNotExists),
             }
             Ok(())
+        }
+
+        #[ink(message)]
+        pub fn get_my_item(&self, account: AccountId) -> Vec<TodoItem> {
+            let mut item: Vec<TodoItem> = Vec::new();
+            for _item in 0..self.item_id {
+                match self.item.get(_item) {
+                    Some(value) => if value.owner == account {
+                        item.push(value);
+                    },
+                    None => (),
+                }
+            }
+            item
         }
 
         // Item next Id
