@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::new_without_default)]
 
 #[ink::contract]
 mod donation_ink {
@@ -113,4 +114,27 @@ mod donation_ink {
     fn zero_address() -> AccountId {
         [0u8; 32].into()
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn default_accounts() -> ink::env::test::DefaultAccounts<ink::env::DefaultEnvironment> {
+            ink::env::test::default_accounts::<Environment>()
+        }
+
+        fn set_next_caller(caller: AccountId) {
+            ink::env::test::set_caller::<Environment>(caller);
+        }
+
+        #[ink::test]
+        fn register_works() {
+            let default_accounts = default_accounts();
+            set_next_caller(default_accounts.alice);
+            let contract = DonationContract::new(default_accounts.bob);
+
+            assert_eq!(contract.get_beneficiary(), Some(default_accounts.bob));
+        }
+    }
 }
+
