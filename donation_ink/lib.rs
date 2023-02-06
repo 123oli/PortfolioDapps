@@ -89,6 +89,14 @@ mod donation_ink {
         }
 
         #[ink(message)]
+        pub fn get_donation_amount_by_user(&self, donation_id: DonationId) -> (AccountId, u128) {
+            (
+                self.donations.get(donation_id).unwrap_or_default().account,
+                self.donations.get(donation_id).unwrap_or_default().amount,
+            )
+        }
+
+        #[ink(message)]
         pub fn get_donation(&mut self) -> Vec<Donation> {
             let mut donation: Vec<Donation> = Vec::new();
             for _donation in 0..self.donation_id {
@@ -127,6 +135,19 @@ mod donation_ink {
             ink::env::test::set_caller::<Environment>(caller);
         }
 
+        fn set_balance(account_id: AccountId, balance: Balance) {
+            ink::env::test::set_account_balance::<ink::env::DefaultEnvironment>(account_id, balance)
+        }
+
+        fn set_sender(sender: AccountId) {
+            ink::env::test::set_caller::<ink::env::DefaultEnvironment>(sender);
+        }
+
+        fn get_balance(account_id: AccountId) -> Balance {
+            ink::env::test::get_account_balance::<ink::env::DefaultEnvironment>(account_id)
+                .expect("cannot get account balance")
+        }
+
         #[ink::test]
         fn register_works() {
             set_next_caller(default_accounts().alice);
@@ -136,7 +157,7 @@ mod donation_ink {
         }
 
         #[ink::test]
-        fn change_beneficiary() {
+        fn change_beneficiary_works() {
             set_next_caller(default_accounts().alice);
             let mut contract = DonationContract::new(default_accounts().bob);
 
@@ -145,8 +166,33 @@ mod donation_ink {
             contract.change_beneficiary(default_accounts().charlie);
 
             assert_eq!(contract.get_beneficiary(), Some(default_accounts().charlie));
-            
+        }
+
+        #[ink::test]
+        fn donation_works() {
+            set_next_caller(default_accounts().alice);
+            let mut contract = DonationContract::new(default_accounts().bob);
+
+            let donation_id = 1;
+            set_balance(default_accounts().alice, 100);
+            set_balance(default_accounts().bob, 0);
+            set_sender(default_accounts().alice);
+
+            // Balance benfore donation
+            assert_eq!(get_balance(default_accounts().bob), 0);
+            assert_eq!(get_balance(default_accounts().alice), 100);
+
+            // Donate the balance
+            let donate_balance = 90;
+            ink::env::pay_with_call!(contract.donation(), donate_balance);
+
+            let (account, amount) = contract.get_donation_amount_by_user(donation_id);
+            assert_eq!(account, default_accounts().alice);
+            assert_eq!(amount, 90);
+
+            // Balance after donation
+            assert_eq!(get_balance(default_accounts().bob), 90);
+            // assert_eq!(get_balance(default_accounts().alice), 100 - 90);
         }
     }
 }
-
