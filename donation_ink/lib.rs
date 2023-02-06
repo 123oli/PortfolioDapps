@@ -129,11 +129,23 @@ mod donation_ink {
 
         #[ink::test]
         fn register_works() {
-            let default_accounts = default_accounts();
-            set_next_caller(default_accounts.alice);
-            let contract = DonationContract::new(default_accounts.bob);
+            set_next_caller(default_accounts().alice);
+            let contract = DonationContract::new(default_accounts().bob);
 
-            assert_eq!(contract.get_beneficiary(), Some(default_accounts.bob));
+            assert_eq!(contract.get_beneficiary(), Some(default_accounts().bob));
+        }
+
+        #[ink::test]
+        fn change_beneficiary() {
+            set_next_caller(default_accounts().alice);
+            let mut contract = DonationContract::new(default_accounts().bob);
+
+            assert_eq!(contract.get_beneficiary(), Some(default_accounts().bob));
+
+            contract.change_beneficiary(default_accounts().charlie);
+
+            assert_eq!(contract.get_beneficiary(), Some(default_accounts().charlie));
+            
         }
     }
 }
