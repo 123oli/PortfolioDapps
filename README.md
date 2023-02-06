@@ -1,2 +1,0 @@
-# PortfolioDapps
-Ink! Smart Contracts
