@@ -58,7 +58,28 @@ mod battelship_contract {
         }
 
         #[ink(message)]
-        pub fn get(&self) {}
+        pub fn new_game(&mut self) -> GameState {
+            let id = self.game_next_id();
+            assert!(self.games.get(id).is_none(), "Game must not exist");
+
+            let player_state = PlayerState {
+                account: self.env().caller(),
+                board: [0u32; 8],
+                shot_x: 0,
+                shot_y: 0
+            };
+            let game_state = GameState {
+                next_turn: 0,
+                p1: player_state,
+                p2: Default::default(),
+                last_hit: 0,
+                sunk_what: 0,
+            };
+
+            self.games.insert(id, &game_state);
+
+            game_state
+        }
 
         #[inline]
         pub fn game_next_id(&mut self) -> GameId {
