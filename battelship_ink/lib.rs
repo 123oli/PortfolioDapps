@@ -9,6 +9,13 @@ mod battelship_contract {
         feature = "std",
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
     )]
+    pub enum BattelShipContractError {}
+
+    #[derive(Debug, scale::Decode, scale::Encode)]
+    #[cfg_attr(
+        feature = "std",
+        derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
+    )]
     pub struct PlayerState {
         account: AccountId,
         board: [u32; 8],
@@ -57,8 +64,9 @@ mod battelship_contract {
             }
         }
 
+        // Set P1 initial state
         #[ink(message)]
-        pub fn new_game(&mut self) -> GameState {
+        pub fn new_game(&mut self) -> Result<(), BattelShipContractError> {
             let id = self.game_next_id();
             assert!(self.games.get(id).is_none(), "Game must not exist");
 
@@ -66,7 +74,7 @@ mod battelship_contract {
                 account: self.env().caller(),
                 board: [0u32; 8],
                 shot_x: 0,
-                shot_y: 0
+                shot_y: 0,
             };
             let game_state = GameState {
                 next_turn: 0,
@@ -78,7 +86,38 @@ mod battelship_contract {
 
             self.games.insert(id, &game_state);
 
-            game_state
+            Ok(())
+        }
+
+        // Set p2 state, and makes the first shot at p1
+        #[ink(message)]
+        pub fn join_game(
+            &mut self,
+            shot_x: u32,
+            shot_y: u32,
+        ) -> Result<(), BattelShipContractError> {
+            let id = self.game_next_id();
+            // get game record (default if not)
+            let mut game_state = self.games.get(id).unwrap_or_default();
+
+            // verify we are on turn 0
+            assert!(game_state.next_turn == 0, "Game state is not on turn 0");
+
+            // set turn to 1
+            game_state.next_turn = 1;
+
+            // update player 2 starting state + set shot
+            game_state.p2 = PlayerState {
+                account: self.env().caller(),
+                board: [0u32; 8],
+                shot_x,
+                shot_y,
+            };
+
+            // Write back to contract storage
+            self.games.insert(id, &game_state);
+
+            Ok(())
         }
 
         #[inline]
