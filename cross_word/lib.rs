@@ -16,7 +16,7 @@ mod cross_word {
     )]
     pub enum PuzzleStatus {
         Unsolved,
-        Solved { solver_pk: AccountId },
+        Solved { solver: AccountId },
         // memo is basically message
         Claimed { memo: String },
     }
