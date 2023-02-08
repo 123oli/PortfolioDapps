@@ -9,7 +9,10 @@ mod battelship_contract {
         feature = "std",
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
     )]
-    pub enum BattelShipContractError {}
+    pub enum BattelShipContractError {
+        GAMEMUSTNOTEXISTS,
+        NEXTTURNNOTZERO,
+    }
 
     #[derive(Debug, scale::Decode, scale::Encode)]
     #[cfg_attr(
@@ -68,7 +71,11 @@ mod battelship_contract {
         #[ink(message)]
         pub fn new_game(&mut self) -> Result<(), BattelShipContractError> {
             let id = self.game_next_id();
-            assert!(self.games.get(id).is_none(), "Game must not exist");
+
+            // assert!(self.games.get(id).is_none(), "Game must not exist");
+            if !self.games.get(id).is_none() {
+                return Err(BattelShipContractError::GAMEMUSTNOTEXISTS);
+            }
 
             let player_state = PlayerState {
                 account: self.env().caller(),
@@ -101,7 +108,10 @@ mod battelship_contract {
             let mut game_state = self.games.get(id).unwrap_or_default();
 
             // verify we are on turn 0
-            assert!(game_state.next_turn == 0, "Game state is not on turn 0");
+            // assert!(game_state.next_turn == 0, "Game state is not on turn 0");
+            if game_state.next_turn != 0 {
+                return Err(BattelShipContractError::NEXTTURNNOTZERO);
+            }
 
             // set turn to 1
             game_state.next_turn = 1;
@@ -116,6 +126,27 @@ mod battelship_contract {
 
             // Write back to contract storage
             self.games.insert(id, &game_state);
+
+            Ok(())
+        }
+
+        // Do a normal turn
+        pub fn turn(&mut self, shot_x: u32, shot_y: u32) -> Result<(), BattelShipContractError> {
+            let id = self.game_next_id();
+            let mut game_state = self.games.get(id).unwrap_or_default();
+
+            // verify we are on turn 1 or 2
+            assert!(game_state.next_turn >= 1, "Invalid turn ");
+
+            // get ref to player current player (responding prior shot, making new one)
+            let (cur_player, prev_player) = if game_state.next_turn == 1 {
+                (&mut game_state.p1, &mut game_state.p2)
+            } else {
+                (&mut game_state.p2, &mut game_state.p1)
+            };
+
+            // Verify the right user is playing
+            assert!(cur_player.account == self.env().caller(), "No a right user");
 
             Ok(())
         }
