@@ -40,7 +40,7 @@ mod twitter_ink {
         tweets_of: Mapping<AccountId, Vec<Tweet>>,
         conversations: Mapping<MessageId, Vec<Message>>,
         following: Mapping<AccountId, Vec<AccountId>>,
-        operators: Mapping<(AccountId, AccountId), bool>,
+        // operators: Mapping<(AccountId, AccountId), bool>,
         tweet_next_id: i32,
         message_next_id: i32,
     }
@@ -71,7 +71,7 @@ mod twitter_ink {
                 tweets_of: Default::default(),
                 conversations: Default::default(),
                 following: Default::default(),
-                operators: Default::default(),
+                // operators: Default::default(),
                 tweet_next_id: 0,
                 message_next_id: 0,
             };
@@ -91,10 +91,10 @@ mod twitter_ink {
 
         #[ink(message)]
         pub fn _tweet(&mut self, content: String, from: AccountId) {
-            let caller = self.env().caller();
-            let operator = self.operators.get((from, caller)).unwrap_or_default();
+            // let caller = self.env().caller();
+            // let operator = self.operators.get((from, caller)).unwrap_or_default();
 
-            assert!(operator == true, "Operator not authorized");
+            // assert!(operator == true, "Operator not authorized");
             let tweet_id = self.next_id_tweet();
             let created_at = self.env().block_timestamp();
 
@@ -122,11 +122,11 @@ mod twitter_ink {
 
         #[ink(message)]
         pub fn _send_message(&mut self, content: String, from: AccountId, to: AccountId) {
-            let caller = self.env().caller();
-            let operator = self.operators.get((from, caller)).unwrap_or_default();
+            // let caller = self.env().caller();
+            // let operator = self.operators.get((from, caller)).unwrap_or_default();
             let created_at = self.env().block_timestamp();
 
-            assert!(operator == true, "Operator not authorized");
+            // assert!(operator == true, "Operator not authorized");
 
             let message_id = self.next_id_message();
             let message = Message {
@@ -166,6 +166,19 @@ mod twitter_ink {
             let message_id = self.message_next_id;
             self.message_next_id += 1;
             message_id
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn default_accounts() -> ink::env::test::DefaultAccounts<ink::env::DefaultEnvironment> {
+            ink::env::test::default_accounts::<Environment>()
+        }
+
+        fn set_next_caller(caller: AccountId) {
+            ink::env::test::set_caller::<Environment>(caller);
         }
     }
 }
