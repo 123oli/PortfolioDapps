@@ -40,8 +40,8 @@ mod hotel {
                 security_deposit: Default::default(),
                 time_stamp: Default::default(),
                 vacant: Default::default(),
-                landlord: [0u8; 32].into(),
-                current_tenant: [0u8; 32].into(),
+                landlord: zero_address(),
+                current_tenant: zero_address(),
             }
         }
     }
@@ -92,8 +92,8 @@ mod hotel {
                 room_address: Default::default(),
                 rent_per_month: Default::default(),
                 time_stamp: Default::default(),
-                tenant_address: [0u8; 32].into(),
-                land_lord_address: [0u8; 32].into(),
+                tenant_address: zero_address(),
+                land_lord_address: zero_address(),
             }
         }
     }
@@ -102,24 +102,28 @@ mod hotel {
     pub struct Hotel {
         tenant: AccountId,
         land_lord: AccountId,
-        no_of_rooms: i32,
-        no_of_agreement: i32,
-        no_of_rent: i32,
+        room_id: i32,
+        agreement_id: i32,
+        rent_id: i32,
 
         room: Mapping<RoomId, Room>,
         agreement: Mapping<AgreementId, RoomAgreement>,
         rent: Mapping<RentId, Rent>,
     }
 
+    #[derive(scale::Decode, scale::Encode, PartialEq, Eq)]
+    #[cfg_attr(feature = "std", derive(scale_info::TypeInfo))]
+    pub enum HotelError {}
+
     impl Hotel {
         #[ink(constructor)]
         pub fn new() -> Self {
             Self {
-                tenant: [0u8; 32].into(),
-                land_lord: [0u8; 32].into(),
-                no_of_rooms: Default::default(),
-                no_of_agreement: Default::default(),
-                no_of_rent: Default::default(),
+                tenant: zero_address(),
+                land_lord: zero_address(),
+                room_id: Default::default(),
+                agreement_id: Default::default(),
+                rent_id: Default::default(),
 
                 room: Mapping::default(),
                 agreement: Mapping::default(),
@@ -137,11 +141,18 @@ mod hotel {
             security_deposit: u128,
             time_stamp: Timestamp,
         ) {
+            // get the caller of contract
             let caller = self.env().caller();
 
+            // get the `next_room_id`
+            let room_id = self.next_room_id();
+            // get the `next_agreement_id`
+            let agreement_id = self.next_agreement_id();
+
+            // create a new `Room` object with the given fields
             let new_room = Room {
-                room_id: 1,
-                agreement_id: 1,
+                room_id,
+                agreement_id,
                 room_name,
                 room_address,
                 rent_per_month,
@@ -149,7 +160,7 @@ mod hotel {
                 time_stamp,
                 vacant: false,
                 landlord: caller,
-                current_tenant: [0u8; 32].into(),
+                current_tenant: zero_address(),
             };
 
             // insert data to the room with respect to id
@@ -159,10 +170,9 @@ mod hotel {
         // user shouldn't be owner/landlord to sign_aggrement
         // enough agreement fee
         // agreement happens when particular room is empty
-
         #[ink(message, payable)]
         pub fn sign_aggrement(&mut self, room_id: RoomId) {
-            // contract caller
+            // get the caller of contract
             let caller = self.env().caller();
 
             // get the room of specific `room_id`
@@ -177,19 +187,19 @@ mod hotel {
             // transfer `total_fee` to landlord
             self.env().transfer(landlord, total_fee).unwrap_or_default();
 
-            // increas `no_of_agreements` of the room
-            self.no_of_agreement += 1;
+            // get `the next_agreement_id`
+            let agreement_id = self.next_agreement_id();
 
             // update room data for success agreement
             room.current_tenant = caller;
             room.vacant = false;
             room.time_stamp = self.env().block_timestamp();
-            room.agreement_id = self.no_of_agreement;
+            room.agreement_id = agreement_id;
 
-            // insert agreement data with respect to agreement_id
+            // create new `RoomAgreement` of the room
             let agreement = RoomAgreement {
                 room_id,
-                agreement_id: self.no_of_agreement,
+                agreement_id,
                 room_name: room.room_name.clone(),
                 room_address: room.room_address.clone(),
                 rent_per_month: room.rent_per_month,
@@ -198,12 +208,18 @@ mod hotel {
                 time_stamp: room.time_stamp,
             };
 
-            self.agreement.insert(self.no_of_agreement, &agreement);
-            self.no_of_rent += 1;
+            // insert `sign_agreement` to the agreement mapping
+            self.agreement.insert(agreement_id, &agreement);
+
+
+            // get the `next_rent_id`
+            let rent_id = self.next_rent_id();
+
+            // create new `Rent` object with the given filds
             let rent = Rent {
-                rent_id: self.no_of_rent,
+                rent_id,
                 room_id,
-                agreement_id: self.no_of_agreement,
+                agreement_id,
                 room_name: room.room_name,
                 room_address: room.room_address,
                 rent_per_month: room.rent_per_month,
@@ -211,7 +227,9 @@ mod hotel {
                 tenant_address: caller,
                 land_lord_address: landlord,
             };
-            self.rent.insert(self.no_of_rent, &rent);
+
+            // insert `rent` in the mapping
+            self.rent.insert(rent_id, &rent);
         }
 
         // must be same tenant address
@@ -219,19 +237,36 @@ mod hotel {
         // enough rent
         #[ink(message, payable)]
         pub fn pay_rent(&mut self, room_id: RoomId) {
+            // get the caller of the contract
             let caller = self.env().caller();
+
+            // get the room of specific `room_id`
             let mut room = self.room.get(room_id).unwrap_or_default();
+
+            // get he `landlord` of the room
             let landlord = room.landlord;
+
+            // get the `rent_per_month` of the room
             let rent = room.rent_per_month;
+
+            // transfer `rent` to the `landlord`
             self.env().transfer(landlord, rent).unwrap_or_default();
+
+            // update `current_tenant` of the room
             room.current_tenant = caller;
+
+            // update room `vacant`
             room.vacant = false;
 
-            self.no_of_rent += 1;
+            // get the `next_rent_id & next_agreement_id` of the room
+            let rent_id = self.next_rent_id();
+            let agreement_id = self.next_agreement_id();
+
+            // create new `Rent` object with the given fields
             let rent = Rent {
-                rent_id: self.no_of_rent,
+                rent_id,
                 room_id,
-                agreement_id: self.no_of_agreement,
+                agreement_id,
                 room_name: room.room_name,
                 room_address: room.room_address,
                 rent_per_month: room.rent_per_month,
@@ -239,7 +274,9 @@ mod hotel {
                 tenant_address: caller,
                 land_lord_address: landlord,
             };
-            self.rent.insert(self.no_of_rent, &rent);
+
+            // insert updated rent after the `rent_payment`
+            self.rent.insert(rent_id, &rent);
         }
 
         // only landlord
@@ -247,19 +284,55 @@ mod hotel {
         // room vaccant must be false
         #[ink(message)]
         pub fn agreement_completed(&self, room_id: RoomId) {
+            // get the `room` of specific `room_id`
             let room = self.room.get(room_id).unwrap_or_default();
+
+            // get the `tenant` of the room
             let tenant = room.current_tenant;
+
+            // get the `security_deposit` of the room
             let security_deposit = room.security_deposit;
 
-            self.env().transfer(tenant, security_deposit).unwrap_or_default();
+            // transfer back `security_deposit` to the tenant
+            self.env()
+                .transfer(tenant, security_deposit)
+                .unwrap_or_default();
         }
 
         // only landlord
         // agreement time left
         #[ink(message)]
         pub fn agreement_terminated(&self, room_id: RoomId) {
+            // get the `room` of specific `room_id`
             let mut room = self.room.get(room_id).unwrap_or_default();
+
+            // update `room` vacant and make it `false`
+            // so that it is available for rent again
             room.vacant = true;
         }
+
+        // get next_id for `room`, `agreement` & `rent`
+        pub fn next_room_id(&mut self) -> RoomId {
+            let room_id = self.room_id;
+            self.room_id += 1;
+            room_id
+        }
+
+        pub fn next_agreement_id(&mut self) -> RoomId {
+            let agreement_id = self.agreement_id;
+            self.agreement_id += 1;
+            agreement_id
+        }
+
+        pub fn next_rent_id(&mut self) -> RoomId {
+            let rent_id = self.rent_id;
+            self.rent_id += 1;
+            rent_id
+        }
+    }
+
+    // zero address defination for `AccountId`
+    pub fn zero_address() -> AccountId {
+        [0u8; 32].into()
     }
 }
