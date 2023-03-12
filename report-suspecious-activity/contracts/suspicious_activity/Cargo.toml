@@ -1,0 +1,42 @@
+[package]
+name = "suspicious_activity"
+version = "0.1.0"
+authors = ["[your_name] <[your_email]>"]
+edition = "2021"
+
+[dependencies]
+ink = { version = "4.0.1", default-features = false }
+
+scale = { package = "parity-scale-codec", version = "3", default-features = false, features = [
+    "derive",
+] }
+scale-info = { version = "2.3", default-features = false, features = [
+    "derive",
+], optional = true }
+
+openbrush = { tag = "3.0.0", git = "https://github.com/727-Ventures/openbrush-contracts", default-features = false, features = [
+    "psp34",
+    "ownable",
+] }
+
+logics = { path = "logics", default-features = false, features = [
+    "ink-as-dependency",
+] }
+
+
+[dev-dependencies]
+ink_e2e = "4.0.1"
+
+[lib]
+path = "lib.rs"
+
+crate-type = [
+    # Used for normal contract Wasm blobs.
+    "cdylib",
+]
+
+[features]
+default = ["std"]
+std = ["ink/std", "scale/std", "scale-info/std", "openbrush/std", "logics/std"]
+ink-as-dependency = []
+e2e-tests = []
